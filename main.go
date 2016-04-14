@@ -16,8 +16,8 @@ const (
 )
 
 var (
-	messages []string
-	bufSize  = 1024 * 1024
+	messages       []string
+	defaultBufSize = 1024 * 1024
 )
 
 func main() {
@@ -50,6 +50,7 @@ func main() {
 	}
 	defer f.Close()
 
+	var bufSize int
 	w := shapeio.NewWriter(f)
 	if rate != 0 {
 		avgMessageSize := 0
@@ -59,17 +60,25 @@ func main() {
 		avgMessageSize = avgMessageSize / len(messages)
 		limit := float64(avgMessageSize) * rate
 		w.SetRateLimit(limit)
+		bufSize = int(limit)
+	} else {
+		bufSize = defaultBufSize
 	}
 	bw := bufio.NewWriterSize(w, bufSize)
 
+	running := true
+	done := make(chan interface{})
 	timer := time.NewTimer(time.Duration(second) * time.Second)
 	go func() {
 		n := len(messages)
-		for i := 0; ; i++ {
+		for i := 0; running; i++ {
 			io.WriteString(bw, messages[i%n])
 		}
+		done <- true
 	}()
 	<-timer.C
+	running = false
+	<-done
 }
 
 func die(err error) {
