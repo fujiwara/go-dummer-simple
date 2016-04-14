@@ -4,7 +4,7 @@ Generates dummy log data - a port of sonots/dummer 's dummer_simple
 
 ## Installation
 
-`go get github.com/fujiwara/go-dummy-simple`
+`go get github.com/fujiwara/go-dummer-simple`
 
 ## Usage
 
