@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -13,11 +12,13 @@ import (
 
 const (
 	defaultMessage = "time:2013-11-20 23:39:42 +0900\tlevel:ERROR\tmethod:POST\turi:/api/v1/people\treqtime:3.1983877060667103"
+	timeResolition = 20
 )
 
 var (
-	messages       []string
+	messages       [][]byte
 	defaultBufSize = 1024 * 1024
+	LF             = []byte{10}
 )
 
 func main() {
@@ -42,9 +43,10 @@ func main() {
 			die(err)
 		}
 	} else {
-		messages = []string{message + "\n"}
+		m := []byte(message + "\n")
+		messages = [][]byte{m}
 	}
-	f, err := os.Create(output)
+	f, err := os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		die(err)
 	}
@@ -60,7 +62,11 @@ func main() {
 		avgMessageSize = avgMessageSize / len(messages)
 		limit := float64(avgMessageSize) * rate
 		w.SetRateLimit(limit)
-		bufSize = int(limit)
+		if limit > timeResolition {
+			bufSize = int(limit / timeResolition)
+		} else {
+			bufSize = int(limit)
+		}
 	} else {
 		bufSize = defaultBufSize
 	}
@@ -72,8 +78,9 @@ func main() {
 	go func() {
 		n := len(messages)
 		for i := 0; running; i++ {
-			io.WriteString(bw, messages[i%n])
+			bw.Write(messages[i%n])
 		}
+		bw.Flush()
 		done <- true
 	}()
 	<-timer.C
@@ -93,7 +100,9 @@ func loadMessages(filename string) error {
 	}
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		messages = append(messages, scanner.Text()+"\n")
+		line := scanner.Bytes()
+		line = append(line, LF...)
+		messages = append(messages, line)
 	}
 	if err := scanner.Err(); err != nil {
 		return err
