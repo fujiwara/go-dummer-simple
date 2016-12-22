@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -16,9 +17,9 @@ const (
 )
 
 var (
-	messages       [][]byte
+	messages       []string
 	defaultBufSize = 1024 * 1024
-	LF             = []byte{10}
+	LF             = "\n"
 )
 
 func main() {
@@ -43,8 +44,7 @@ func main() {
 			die(err)
 		}
 	} else {
-		m := []byte(message + "\n")
-		messages = [][]byte{m}
+		messages = []string{message + "\n"}
 	}
 	f, err := os.OpenFile(output, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -78,7 +78,7 @@ func main() {
 	go func() {
 		n := len(messages)
 		for i := 0; running; i++ {
-			bw.Write(messages[i%n])
+			io.WriteString(bw, messages[i%n])
 		}
 		bw.Flush()
 		done <- true
@@ -100,8 +100,7 @@ func loadMessages(filename string) error {
 	}
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := scanner.Bytes()
-		line = append(line, LF...)
+		line := scanner.Text() + LF
 		messages = append(messages, line)
 	}
 	if err := scanner.Err(); err != nil {
